@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<configuration>
+	<appenders>
+		<Console name="Console" target="SYSTEM_OUT">
+			<PatternLayout pattern="%d{HH:mm:ss.SSS} [%t] %-5level %logger{36} - %msg%n"/>
+		</Console>
+		<RollingFile name="RollingFile" fileName="logs/app.log"
+				 filePattern="logs/app-%d{yyyy-MM-dd}-%i.log">
+			<PatternLayout pattern="%d{HH:mm:ss.SSS} [%t] %-5level %logger{36} - %msg%n"/>
+			<Policies>
+				<TimeBasedTriggeringPolicy /><!-- Rotated everyday -->
+				<SizeBasedTriggeringPolicy size="100 MB"/> <!-- Or every 100 MB -->
+			</Policies>
+		</RollingFile>
+	</appenders>
+	<loggers>
+		<root level="debug">
+			<appender-ref ref="Console"/> <!-- To console -->
+			<appender-ref ref="RollingFile"/> <!-- And to a rotated file -->
+		</root>
+		<logger name="org.hibernate" level="WARN"/>
+	</loggers>
+</configuration>
