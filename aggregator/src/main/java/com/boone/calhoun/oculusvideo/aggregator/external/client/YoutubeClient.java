@@ -7,17 +7,24 @@ import java.util.List;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
+import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.builder.ToStringBuilder;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
 import com.boone.calhoun.oculusvideo.aggregator.data.VideoInfo;
 import com.boone.calhoun.oculusvideo.aggregator.data.VideoPlayer;
+import com.boone.calhoun.oculusvideo.aggregator.data.YoutubeVideoInfo;
 import com.google.gdata.client.youtube.YouTubeQuery;
 import com.google.gdata.client.youtube.YouTubeQuery.OrderBy;
 import com.google.gdata.client.youtube.YouTubeQuery.Time;
 import com.google.gdata.client.youtube.YouTubeService;
+import com.google.gdata.data.Person;
+import com.google.gdata.data.extensions.Comments;
+import com.google.gdata.data.extensions.FeedLink;
 import com.google.gdata.data.media.mediarss.MediaThumbnail;
+import com.google.gdata.data.youtube.CommentEntry;
+import com.google.gdata.data.youtube.CommentFeed;
 import com.google.gdata.data.youtube.VideoEntry;
 import com.google.gdata.data.youtube.VideoFeed;
 import com.google.gdata.data.youtube.YouTubeMediaGroup;
@@ -96,7 +103,26 @@ public class YoutubeClient
 			VideoInfo videoInfo = convertVideoEntry(videoEntry);
 			if (videoInfo != null)
 			{
-				videoInfoList.add(videoInfo);
+				// The search API returns really inaccurate statistics, so the info for each video needs
+				// to be retrieved individually for better quality.
+				VideoInfo detailedVideoInfo = null;
+				try
+				{
+					detailedVideoInfo = getVideoInfo(videoInfo.getIdentifier().getId());
+				}
+				catch (Exception e)
+				{
+					logger.warn("Unable to get detailed info for video. Falling back on info from search.", e);
+				}
+				
+				if (detailedVideoInfo != null)
+				{
+					videoInfoList.add(detailedVideoInfo);
+				}
+				else
+				{
+					videoInfoList.add(videoInfo);
+				}
 			}
 		}
 		
@@ -120,6 +146,9 @@ public class YoutubeClient
 			logger.debug("Performing Youtube query: " + videoEntryUrl);
 			VideoEntry videoEntry = service.getEntry(new URL(videoEntryUrl), VideoEntry.class);
 			videoInfo = convertVideoEntry(videoEntry);
+			
+			// Add comment info if available
+			addCommentInfo(videoInfo);
 		}
 		catch (Exception e)
 		{
@@ -128,6 +157,57 @@ public class YoutubeClient
 		}
 		
 		return videoInfo;
+	}
+	
+	/**
+	 * Get top comment info from Youtube and add it to the video info.
+	 * 
+	 * @param videoInfo The base VideoInfo to add comment info to.
+	 */
+	private void addCommentInfo(VideoInfo videoInfo)
+	{
+		if (videoInfo.getYoutubeVideoInfo() != null && videoInfo.getYoutubeVideoInfo().getCommentFeedUrl() != null)
+		{
+			try
+			{
+				logger.debug("Getting Youtube comment feed: " + videoInfo.getYoutubeVideoInfo().getCommentFeedUrl());
+				URL feedUrl = new URL(videoInfo.getYoutubeVideoInfo().getCommentFeedUrl());
+				CommentFeed commentFeed = service.getFeed(feedUrl, CommentFeed.class);
+				
+				if (commentFeed != null)
+				{
+					// Have to rely on Youtube ordering the comments from top to bottom by their rating,
+					// because they don't include the rating for each comment.
+					for (CommentEntry comment : commentFeed.getEntries())
+					{
+						for (Person author : comment.getAuthors())
+						{
+							String authorName = StringUtils.trim(StringUtils.strip(author.getName()));
+							
+							// Have to remove this BOM that is omnipresent & newlines
+							String commentText = comment.getPlainTextContent().replace("\ufeff", "").replace("\n", "");
+							commentText = StringUtils.strip(StringUtils.trim(commentText));
+							
+							// The first comment with an author with a real name should be the top comment
+							if ( ! "YouTube".equalsIgnoreCase(author.getName()) 
+									&& ! StringUtils.isBlank(authorName)
+									&& ! StringUtils.isBlank(commentText))
+							{
+								videoInfo.getYoutubeVideoInfo().setTopCommentAuthor(authorName);
+								videoInfo.getYoutubeVideoInfo().setTopCommentText(commentText);
+								
+								// Populated the comment. Done here.
+								return;
+							}
+						}
+					}
+				}
+			}
+			catch (Exception e)
+			{
+				logger.error("Error getting comments", e);
+			}
+		}
 	}
 	
 	/**
@@ -184,6 +264,27 @@ public class YoutubeClient
 				else
 				{
 					logger.debug("No statistics");
+				}
+				
+				// get the URL of the comment feed
+				Comments comments = videoEntry.getComments();
+				if (comments != null)
+				{
+					@SuppressWarnings("rawtypes")
+					FeedLink commentFeedLink = comments.getFeedLink();
+					String commentFeedUrl = commentFeedLink.getHref();
+					
+					if (commentFeedUrl != null)
+					{
+						YoutubeVideoInfo youtubeVideoInfo = new YoutubeVideoInfo();
+						youtubeVideoInfo.setIdentifier(identifier);
+						youtubeVideoInfo.setCommentFeedUrl(commentFeedUrl);
+						videoInfo.setYoutubeVideoInfo(youtubeVideoInfo);
+					}
+				}
+				else
+				{
+					logger.debug("No comments");
 				}
 				
 				return videoInfo;

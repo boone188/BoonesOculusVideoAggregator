@@ -4,7 +4,7 @@ import org.apache.commons.lang3.builder.ToStringBuilder;
 
 public class TwitterVideoInfo 
 {
-	private VideoInfo.Identifier identifier;
+	private transient VideoInfo.Identifier identifier;
 	private int numberOfTweets = 0;
 	private String topTweetText = null;
 	private String topTweetUserName = null;

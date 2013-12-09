@@ -80,6 +80,7 @@ public class VideoInfo
 	private Date uploadDate = null;
 	private RedditVideoInfo redditVideoInfo = null;
 	private TwitterVideoInfo twitterVideoInfo = null;
+	private YoutubeVideoInfo youtubeVideoInfo = null;
 	
 	public String toString()
 	{
@@ -93,6 +94,7 @@ public class VideoInfo
 			.append("uploadDate", uploadDate)
 			.append("redditVideoInfo", redditVideoInfo)
 			.append("twitterVideoInfo", twitterVideoInfo)
+			.append("youtubeVideoInfo", youtubeVideoInfo)
 			.toString();
 	}
 	
@@ -203,4 +205,12 @@ public class VideoInfo
 		this.twitterVideoInfo = twitterVideoInfo;
 	}
 
+	public YoutubeVideoInfo getYoutubeVideoInfo()
+	{
+		return youtubeVideoInfo;
+	}
+	public void setYoutubeVideoInfo(YoutubeVideoInfo youtubeVideoInfo)
+	{
+		this.youtubeVideoInfo = youtubeVideoInfo;
+	}
 }

@@ -6,7 +6,7 @@ public class RedditVideoInfo
 {
 	private static int MAX_COMMENT_LENGTH = 1000;
 	
-	private VideoInfo.Identifier identifier = null;
+	private transient VideoInfo.Identifier identifier = null;
 	private String url = null;
 	private int score = 0;
 	private int upvotes = 0;
